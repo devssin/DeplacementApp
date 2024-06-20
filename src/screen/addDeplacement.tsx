@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import DocumentPicker from 'react-native-document-picker';
 
 import {
@@ -16,6 +16,8 @@ import {
   ToastAndroid,
   Platform,
   Alert,
+  Button,
+  Modal,
 } from 'react-native';
 
 import AddDetails from '../components/addDetails';
@@ -27,14 +29,31 @@ import {jwtDecode} from 'jwt-decode';
 import {decode as atob} from 'base-64';
 
 global.atob = atob;
+type ModalPromiseRef = {
+  resolve: (value: boolean | any) => void;
+  reject: (reason?: any) => void;
+} | null;
+
+interface AddDeplacementProps {
+  route: any; // You can be more specific with the type if you know it
+  navigation: any; // You can be more specific with the type if you know it
+  setIsUploading: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
 
 const AddDeplacement = ({
   route,
   navigation,
-}: AddDeplacementStackNavigatorProps) => {
+  setIsUploading,
+}: AddDeplacementProps) => {
+
+  const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const id = route.params?.id || 0;
   const [user, setUser] = useState<Record<string, any>>({});
+  const [modalError, setModalError] = useState('');
+  const [modalConfirm, setModalConfirm] = useState(false);
+  const modalPromiseRef  = useRef<ModalPromiseRef>();
 
   const [frasiDetails, setFraisDetails]: any = useState([]);
 
@@ -45,6 +64,7 @@ const AddDeplacement = ({
   const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [selectedUser, setSelectedUser]: any = useState(null);
+ 
   const [selectedDestinations, setSelectedDestinations]: Array<any> = useState(
     [],
   );
@@ -52,6 +72,7 @@ const AddDeplacement = ({
   const [kilometrage, setKilometrage] = useState<number>(0);
   const [fraisKilo, setFraisKilo] = useState<number>(0);
   const [totalG, setTotalG] = useState<number>(0);
+  const [montantAvanceInput, setMontantAvanceInput] = useState<number>(0);
   const [montantAvance, setMontantAvance] = useState<number>(0);
 
   const [fraisJoints, setFraisJoints]: any = useState([]);
@@ -60,12 +81,36 @@ const AddDeplacement = ({
   const [error, setError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const handleOpenModal = () => {
+    return new Promise((resolve, reject) => {
+      modalPromiseRef.current = { resolve, reject };
+      setModalVisible(true);
+    });
+  };
+
+  const handleModalSubmit = () => {
+    if (montantAvanceInput <= 0) {
+      setModalError('Montant avance est obligatoire');
+      modalPromiseRef.current?.resolve(false);
+      return;
+    }
+    setModalError('');
+    modalPromiseRef.current?.resolve(montantAvanceInput);
+    setMontantAvance(montantAvanceInput);
+    setModalVisible(false);
+  };
+
+  const handleCloseModal = () => {
+    modalPromiseRef.current?.resolve(false);
+    setModalVisible(false);
+  };
   const toggelPicker = () => {
     setShowPicker(!showPicker);
   };
 
   const handleUpload = async () => {
     try {
+      setIsUploading(true);
       const res = await DocumentPicker.pickSingle({
         type: ['*/*'], // Allow selecting any type of file
       });
@@ -77,10 +122,11 @@ const AddDeplacement = ({
         name: res.name,
         type: res.type,
       });
-      formData.append('fraisId', fraisId);
+      const idFrais = id > 0 ? id : fraisId;
+      formData.append('fraisId', idFrais);
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `http://10.0.0.31:8075/note-de-frais-api/api/file/upload`,
+        `https://tbg.comarbois.ma//note-de-frais-api/api/file/upload`,
         {
           method: 'POST',
           headers: {
@@ -101,13 +147,15 @@ const AddDeplacement = ({
       return;
     } catch (error) {
       console.error('Error while selecting file: ', error);
+    }finally{
+      setIsUploading(false);
     }
   };
 
   const fetchVilles = async () => {
     const token = await AsyncStorage.getItem('userToken');
     const response = await fetch(
-      `http://10.0.0.31:8075/note-de-frais-api/api/villes/list`,
+      `https://tbg.comarbois.ma//note-de-frais-api/api/villes/list`,
       {
         method: 'GET',
         headers: {
@@ -125,51 +173,12 @@ const AddDeplacement = ({
     setVilles(json.villes);
   };
 
-  const hadleSubmit = async (status: string) => {
-    setSubmitted(true);
-
+  const postData = async (data: any, status:any) => {
+   
     const token = await AsyncStorage.getItem('userToken');
     const idModif = id > 0 ? id : fraisId;
-    const data = {
-      datePrevue: date,
-      emplyeId: selectedUser,
-      destination: selectedDestinations.map((d: any) => d).join(','),
-      motif: motif,
-      kilometrage: kilometrage,
-      fraisKilo: fraisKilo,
-      totalG: totalG,
-      montant_avance: montantAvance,
-      etat: status == 'ouvert' ? etat : status,
-      categorie: 'deplacement',
-    };
-
-    if (date == null) {
-      setError(true);
-      setErrorMessage('La date est obligatoire');
-      return;
-    }
-
-    if (status == 'envoye' && selectedDestinations.length == 0) {
-      setError(true);
-      setErrorMessage('Destination est obligatoire');
-      return;
-    }
-    if (status == 'demande_avance' && montantAvance == 0) {
-      setError(true);
-
-      setErrorMessage("Montant d'avance est obligatoire");
-    }
-    if (status == 'demande_avance' && motif == '') {
-      setError(true);
-      setErrorMessage('Motif est obligatoire');
-      return;
-    }
-
-    setEtat(status);
-    
-
     const response = await fetch(
-      `http://10.0.0.31:8075/note-de-frais-api/api/frais/${
+      `https://tbg.comarbois.ma//note-de-frais-api/api/frais/${
         idModif > 0 ? 'update?id=' + idModif : 'add'
       }`,
       {
@@ -206,6 +215,52 @@ const AddDeplacement = ({
     navigation.navigate('deplacement');
   };
 
+  const hadleSubmit = async  (status: string) => {
+    if (date == null) {
+      setError(true);
+      setErrorMessage('La date est obligatoire');
+      return;
+    }
+
+    if (status == 'envoye' && selectedDestinations.length == 0) {
+      setError(true);
+      setErrorMessage('Destination est obligatoire');
+      return;
+    }
+    if (status == 'demande_avance' && motif == '') {
+      setError(true);
+      setErrorMessage('Motif est obligatoire');
+      return;
+    }
+
+    setEtat(status);
+    const data = {
+      datePrevue: date,
+      destination: selectedDestinations.map((d: any) => d).join(','),
+      motif: motif,
+      kilometrage: kilometrage,
+      fraisKilo: fraisKilo,
+      totalG: totalG,
+      
+      etat: status == 'ouvert' ? etat : status,
+      categorie: 'deplacement',
+    };
+
+    if (id <= 0 && montantAvance <= 0 && status != 'ouvert') {
+       
+      const promise = await handleOpenModal();
+      if (promise) {
+        postData({ ...data, montant_avance: promise }, status);
+      }else{
+        postData(data, status);
+      }
+    } else {
+       postData(data, status);
+    }
+  };
+
+  
+
   const handleKilometrage = (text: any) => {
     if (isNaN(kilometrage)) return;
     const fraisK: Float = kilometrage * 3.5;
@@ -219,7 +274,7 @@ const AddDeplacement = ({
     if (id > 0) {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `http://10.0.0.31:8075/note-de-frais-api/api/frais/consulte?id=${id}`,
+        `https://tbg.comarbois.ma//note-de-frais-api/api/frais/consulte?id=${id}`,
         {
           method: 'GET',
           headers: {
@@ -236,6 +291,7 @@ const AddDeplacement = ({
       }
 
       const {frais} = json;
+      
 
       if (frais == null) return;
       setDate(new Date(frais.datePrevue));
@@ -262,7 +318,7 @@ const AddDeplacement = ({
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `http://10.0.0.31:8075/note-de-frais-api/api/frais_joints/list?idFrais=${id}`,
+        `https://tbg.comarbois.ma//note-de-frais-api/api/frais_joints/list?idFrais=${id}`,
         {
           method: 'GET',
           headers: {
@@ -272,6 +328,7 @@ const AddDeplacement = ({
         },
       );
       const joints = await response.json();
+      console.log(joints);
 
       if (response.status !== 200) {
         return;
@@ -285,7 +342,7 @@ const AddDeplacement = ({
   const fetchFraisDetails = async () => {
     const token = await AsyncStorage.getItem('userToken');
     const response = await fetch(
-      `http://10.0.0.31:8075/note-de-frais-api/api/fraisdepdetails/list?idDep=${id}`,
+      `https://tbg.comarbois.ma//note-de-frais-api/api/fraisDepDetails/list?idDep=${id}`,
       {
         method: 'GET',
         headers: {
@@ -295,6 +352,7 @@ const AddDeplacement = ({
       },
     );
     const details = await response.json();
+    console.log(details);
 
     if (response.status !== 200) {
       return;
@@ -315,7 +373,7 @@ const AddDeplacement = ({
           try {
             const token = await AsyncStorage.getItem('userToken');
             const response = await fetch(
-              `http://10.0.0.31:8075/note-de-frais-api/api/fraisdepdetails/delete?id=${detaiId}&idDep=${
+              `https://tbg.comarbois.ma//note-de-frais-api/api/fraisDepDetails/delete?id=${detaiId}&idDep=${
                 fraisId > 0 ? fraisId : id
               }`,
               {
@@ -359,18 +417,26 @@ const AddDeplacement = ({
   };
 
   useEffect(() => {
+    setLoading(true);
+    console.log('id', id);
     const fetchData = async () => {
-      setLoading(true);
-      decode();
+      
+      await decode();
       await fetchVilles();
       if (id > 0) {
         await fetchFrais();
         await fetchFraisDetails();
         await fetchJoints();
       }
-      setLoading(false);
+      
     };
     fetchData();
+    setTimeout(() => {
+      setLoading(false);
+    }
+    , 1000);
+ 
+   
   }, []);
 
   return (
@@ -460,17 +526,6 @@ const AddDeplacement = ({
               editable={etat == 'ouvert'}
             />
           </View>
-          <View>
-            <Text style={styles.labelStyle}>Montant d'avance :</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              onChangeText={text => setMontantAvance(Number(text))}
-              value={isNaN(montantAvance) ? '0' : montantAvance.toString()}
-              editable={id == 0 || montantAvance == 0 || etat == 'ouvert'}
-            />
-          </View>
-
           <View>
             <Text style={styles.labelStyle}>Kilometrage :</Text>
             <TextInput
@@ -617,7 +672,7 @@ const AddDeplacement = ({
                   }}
                   onPress={() => {
                     Linking.openURL(
-                      `http://10.0.0.31:8075/note-de-frais-api/data/frais_joints/${f.source}`,
+                      `https://tbg.comarbois.ma//note-de-frais-api/data/frais_joints/${f.source}`,
                     );
                   }}>
                   <Text style={{color: 'white'}}>{f.nom_ficher}</Text>
@@ -665,6 +720,34 @@ const AddDeplacement = ({
           )}
         </View>
       )}
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={handleCloseModal}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Voulez vous une avance</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Montant D'avance"
+              keyboardType="numeric"
+              value={isNaN(montantAvanceInput) ? '0' : montantAvanceInput.toString()}
+              onChangeText={text => setMontantAvanceInput(Number(text))}
+            />
+            {modalError && (
+            <Text style={{color: 'red', marginTop: 10, textAlign: 'left'}}>
+              {modalError}
+            </Text>
+          )}
+            <View style={styles.buttonContainer}>
+              <Button title="Oui" onPress={handleModalSubmit} />
+              <Button title="Non" onPress={handleCloseModal} color="red" />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -783,5 +866,29 @@ const styles = StyleSheet.create({
   },
   toastText: {
     fontSize: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: 300,
+    padding: 20,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+
+  buttonContainer: {
+    marginVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
   },
 });

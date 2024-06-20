@@ -117,7 +117,7 @@ const AddDetails: any = ({
     };
     
     const response = await fetch(
-      `http://10.0.0.31:8075/note-de-frais-api/api/fraisdepdetails/add`,
+      `https://tbg.comarbois.ma//note-de-frais-api/api/fraisDepDetails/add`,
       {
         method: "POST",
         headers: {

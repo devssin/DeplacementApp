@@ -17,12 +17,15 @@ const theme = {
     border: 'transparent',
   },
 };
+interface StackNavigatorProps {
+  setIsUploading: React.Dispatch<React.SetStateAction<boolean>>;
+}
 
 const Stack = createNativeStackNavigator<RootScreenRoutesT>();
 
-export const StackNavigator: React.FC = () => {
-
-
+export const StackNavigator: React.FC<StackNavigatorProps> = ({
+  setIsUploading,
+}) => {
   return (
     <NavigationContainer theme={theme}>
       <Stack.Navigator>
@@ -44,17 +47,19 @@ export const StackNavigator: React.FC = () => {
         />
         <Stack.Screen
           name="addDeplacement"
-          component={AddDeplacement}
-          options={({route}) => ({
-            title: `Ajouter un déplacement`,
+          options={{
+            title: 'Ajouter un déplacement',
             headerStyle: {
               backgroundColor: '#d32f2f',
               shadowColor: '#f9fafd',
               elevation: 0,
             },
             headerTintColor: '#fff',
-          })}
-        />
+          }}>
+          {(props: any) => (
+            <AddDeplacement {...props} setIsUploading={setIsUploading} />
+          )}
+        </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
   );
