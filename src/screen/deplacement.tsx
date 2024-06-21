@@ -94,7 +94,7 @@ const Deplacement: React.FC<DeplacementStackNavigatorProps> = ({
       }
 
       const response = await fetch(
-        `https://tbg.comarbois.ma//note-de-frais-api/api/frais/list?categorie=deplacement`,
+        `http://10.0.0.31:8075/note-de-frais-api/api/frais/list?categorie=deplacement`,
         {
           method: 'GET',
           headers: {

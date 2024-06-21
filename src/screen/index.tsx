@@ -77,7 +77,7 @@ const Index: React.FC<IndexStackNavigatorProps> = ({route, navigation}) => {
     setSubmitting(true);
     try {
       const response = await fetch(
-        `https://tbg.comarbois.ma//note-de-frais-api/api/authentification/login`,
+        `http://10.0.0.31:8075/note-de-frais-api/api/authentification/login`,
         {
           method: 'POST',
           headers: {

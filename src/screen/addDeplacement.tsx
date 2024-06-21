@@ -96,7 +96,6 @@ const AddDeplacement = ({
     }
     setModalError('');
     modalPromiseRef.current?.resolve(montantAvanceInput);
-    setMontantAvance(montantAvanceInput);
     setModalVisible(false);
   };
 
@@ -126,7 +125,7 @@ const AddDeplacement = ({
       formData.append('fraisId', idFrais);
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `https://tbg.comarbois.ma//note-de-frais-api/api/file/upload`,
+        `http://10.0.0.31:8075/note-de-frais-api/api/file/upload`,
         {
           method: 'POST',
           headers: {
@@ -155,7 +154,7 @@ const AddDeplacement = ({
   const fetchVilles = async () => {
     const token = await AsyncStorage.getItem('userToken');
     const response = await fetch(
-      `https://tbg.comarbois.ma//note-de-frais-api/api/villes/list`,
+      `http://10.0.0.31:8075/note-de-frais-api/api/villes/list`,
       {
         method: 'GET',
         headers: {
@@ -174,11 +173,13 @@ const AddDeplacement = ({
   };
 
   const postData = async (data: any, status:any) => {
+    
+    
    
     const token = await AsyncStorage.getItem('userToken');
     const idModif = id > 0 ? id : fraisId;
     const response = await fetch(
-      `https://tbg.comarbois.ma//note-de-frais-api/api/frais/${
+      `http://10.0.0.31:8075/note-de-frais-api/api/frais/${
         idModif > 0 ? 'update?id=' + idModif : 'add'
       }`,
       {
@@ -246,12 +247,15 @@ const AddDeplacement = ({
       categorie: 'deplacement',
     };
 
-    if (id <= 0 && montantAvance <= 0 && status != 'ouvert') {
+    if (montantAvance <= 0 && status != 'ouvert') {
        
       const promise = await handleOpenModal();
       if (promise) {
+        console.log('promise', promise);
+
         postData({ ...data, montant_avance: promise }, status);
       }else{
+        if(status == 'demande_avance'){return;}
         postData(data, status);
       }
     } else {
@@ -274,7 +278,7 @@ const AddDeplacement = ({
     if (id > 0) {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `https://tbg.comarbois.ma//note-de-frais-api/api/frais/consulte?id=${id}`,
+        `http://10.0.0.31:8075/note-de-frais-api/api/frais/consulte?id=${id}`,
         {
           method: 'GET',
           headers: {
@@ -318,7 +322,7 @@ const AddDeplacement = ({
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(
-        `https://tbg.comarbois.ma//note-de-frais-api/api/frais_joints/list?idFrais=${id}`,
+        `http://10.0.0.31:8075/note-de-frais-api/api/frais_joints/list?idFrais=${id}`,
         {
           method: 'GET',
           headers: {
@@ -342,7 +346,7 @@ const AddDeplacement = ({
   const fetchFraisDetails = async () => {
     const token = await AsyncStorage.getItem('userToken');
     const response = await fetch(
-      `https://tbg.comarbois.ma//note-de-frais-api/api/fraisDepDetails/list?idDep=${id}`,
+      `http://10.0.0.31:8075/note-de-frais-api/api/fraisDepDetails/list?idDep=${id}`,
       {
         method: 'GET',
         headers: {
@@ -373,7 +377,7 @@ const AddDeplacement = ({
           try {
             const token = await AsyncStorage.getItem('userToken');
             const response = await fetch(
-              `https://tbg.comarbois.ma//note-de-frais-api/api/fraisDepDetails/delete?id=${detaiId}&idDep=${
+              `http://10.0.0.31:8075/note-de-frais-api/api/fraisDepDetails/delete?id=${detaiId}&idDep=${
                 fraisId > 0 ? fraisId : id
               }`,
               {
@@ -671,8 +675,9 @@ const AddDeplacement = ({
                     marginTop: 10,
                   }}
                   onPress={() => {
+                    setIsUploading(true);
                     Linking.openURL(
-                      `https://tbg.comarbois.ma//note-de-frais-api/data/frais_joints/${f.source}`,
+                      `http://10.0.0.31:8075/note-de-frais-api/data/frais_joints/${f.source}`,
                     );
                   }}>
                   <Text style={{color: 'white'}}>{f.nom_ficher}</Text>

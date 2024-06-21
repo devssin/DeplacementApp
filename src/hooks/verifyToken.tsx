@@ -7,7 +7,7 @@ export const verifyToken = async () => {
   }
   
   const res = await fetch(
-    "https://tbg.comarbois.ma//note-de-frais-api/api/authentification/verifyToken",
+    "http://10.0.0.31:8075/note-de-frais-api/api/authentification/verifyToken",
     {
       method: "GET",
       headers: {
